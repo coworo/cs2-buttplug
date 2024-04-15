@@ -1,4 +1,4 @@
-use std::{collections::{BTreeMap, VecDeque}, time::{SystemTime, Duration}};
+use std::{collections::{BTreeMap}, time::{SystemTime, Duration}};
 
 use anyhow::Error;
 use fehler::throws;
@@ -14,17 +14,6 @@ pub enum ScriptCommand {
     Close,
 }
 
-pub struct TimeStampEvent {
-    command: BPCommand,
-    timestamp: SystemTime
-}
-
-impl TimeStampEvent {
-    pub fn new(command: BPCommand, duration: Duration) -> Self {
-        TimeStampEvent{command, timestamp: SystemTime::now() + duration}
-    }
-}
-
 #[throws]
 pub fn spawn_timer_thread(h: Handle, send: broadcast::Sender<BPCommand>) -> (broadcast::Sender<ScriptCommand>, JoinHandle<()>) {
     let (nsend, nrecv) = broadcast::channel(64);
@@ -38,7 +27,6 @@ pub fn spawn_timer_thread(h: Handle, send: broadcast::Sender<BPCommand>) -> (bro
 
 #[throws]
 async fn timer_thread(send: broadcast::Sender<BPCommand>, mut recv: broadcast::Receiver<ScriptCommand>) {
-    //let mut queue: VecDeque<TimeStampEvent> = VecDeque::new();
     let mut pqueue = BTreeMap::new();
 
     info!("started event process thread");
@@ -51,18 +39,13 @@ async fn timer_thread(send: broadcast::Sender<BPCommand>, mut recv: broadcast::R
                 ScriptCommand::VibrateFor(strength, time) => {
                     pqueue.insert(timestamp, BPCommand::Vibrate(strength));
                     pqueue.insert(timestamp + Duration::from_secs_f64(time), BPCommand::Stop);
-                    //queue.push_back(TimeStampEvent::new(BPCommand::Vibrate(strength), Duration::ZERO));
-                    //queue.push_back(TimeStampEvent::new(BPCommand::Stop, Duration::from_secs_f64(time)));
                 },
                 ScriptCommand::VibrateForWithIndex(strength, time, index) => {
                     pqueue.insert(timestamp, BPCommand::VibrateIndex(strength, index));
                     pqueue.insert(timestamp + Duration::from_secs_f64(time), BPCommand::VibrateIndex(0.0, index));
-                    //queue.push_back(TimeStampEvent::new(BPCommand::VibrateIndex(strength, index), Duration::ZERO));
-                    //queue.push_back(TimeStampEvent::new(BPCommand::VibrateIndex(0.0, index), Duration::from_secs_f64(time)));
                 },
                 ScriptCommand::Stop => {
                     pqueue.insert(timestamp, BPCommand::Stop);
-                    //queue.push_back(TimeStampEvent::new(BPCommand::Stop, Duration::ZERO));
                 },
                 ScriptCommand::Close => {
                     close = true;
@@ -92,7 +75,6 @@ async fn timer_thread(send: broadcast::Sender<BPCommand>, mut recv: broadcast::R
                         break;
                     },
                 }
-                
             }
         }
         

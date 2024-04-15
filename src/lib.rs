@@ -8,7 +8,7 @@ use std::{
 use anyhow::{Context, Error};
 use csgo_gsi::GSIServer;
 use fehler::throws;
-use futures::{future::RemoteHandle, FutureExt, TryFutureExt};
+use futures::{future::RemoteHandle, TryFutureExt};
 
 mod buttplug;
 pub mod config;
@@ -26,7 +26,7 @@ const DEFAULT_GAME_DIR: &str = "C:\\Program Files (x86)\\Steam\\steamapps\\commo
 pub type CloseEvent = csgo_gsi::CloseEvent;
 
 #[throws]
-fn spawn_tasks(close_receive: broadcast::Receiver<CloseEvent>, config: &Config, tokio_handle: Handle) -> (RemoteHandle<Result<(), Error>>, GSIServer, broadcast::Sender<ScriptCommand>, JoinHandle<()>, script::ScriptHost) {
+fn spawn_tasks(close_receive: broadcast::Receiver<CloseEvent>, config: &Config, tokio_handle: Handle) -> (RemoteHandle<()>, GSIServer, broadcast::Sender<ScriptCommand>, JoinHandle<()>, script::ScriptHost) {
     let (buttplug_send, buttplug_thread) = buttplug::spawn_run_thread(close_receive, &config.buttplug_server_url).context("couldn't start buttplug client")?;
     let gsi_server = csgo::build_server(config.cs_integration_port, match &config.cs_script_dir { Some(dir) => dir.clone(), None => PathBuf::from_str(DEFAULT_GAME_DIR).unwrap() })
         .map_err(|err| anyhow::anyhow!("{}", err)).context("couldn't set up CS integration server")?;
@@ -50,7 +50,7 @@ pub async fn async_main(config: Config, tokio_handle: Handle, close_send: tokio:
             
             info!("Initialised; waiting for exit");
 
-            buttplug_thread.await.expect("Critical: Crashed stopping buttplug thread.");
+            buttplug_thread.await;
             info!("Sending close event");
             close_send.send(CloseEvent{}).expect("Critical: Crashed sending close event.");
             info!("Closing GSI thread");
