@@ -8,6 +8,7 @@ use crate::buttplug::BPCommand;
 
 #[derive(Copy, Clone, Debug)]
 pub enum ScriptCommand {
+    Vibrate(f64),
     VibrateFor(f64, f64),
     VibrateForWithIndex(f64, f64, u32),
     Stop,
@@ -36,6 +37,9 @@ async fn timer_thread(send: broadcast::Sender<BPCommand>, mut recv: broadcast::R
         let mut enqueue_func = |msg, pqueue: &mut BTreeMap<SystemTime, BPCommand>| {
             let timestamp = SystemTime::now();
             match msg {
+                ScriptCommand::Vibrate(strength) => {
+                    pqueue.insert(timestamp, BPCommand::Vibrate(strength));
+                },
                 ScriptCommand::VibrateFor(strength, time) => {
                     pqueue.insert(timestamp, BPCommand::Vibrate(strength));
                     pqueue.insert(timestamp + Duration::from_secs_f64(time), BPCommand::Stop);

@@ -23,17 +23,24 @@ pub struct ScriptHost {
 impl ScriptHost {
     #[throws]
     pub fn new(send: broadcast::Sender<ScriptCommand>) -> Self {
+        let vasend = send.clone();
         let vsend = send.clone();
         let visend = send.clone();
         let ssend = send.clone();
         let mut engine = Engine::new();
         
-        engine.set_max_call_levels(200);
-        engine.set_max_expr_depths(200, 200);
-        engine.set_max_operations(200);
+        engine.set_max_call_levels(900);
+        engine.set_max_expr_depths(900, 900);
+        engine.set_max_operations(0); //removed operation limit, 200 is a little too restrictive.
 
         engine.load_package(CSGOPackage::new().get());
-        engine.register_fn("vibrate", move |speed: f64, time: f64| {
+        engine.register_fn("vibrate", move |speed: f64| {
+            let result: Result<usize, broadcast::error::SendError<ScriptCommand>> = vasend.send(ScriptCommand::Vibrate(speed));
+            if let Err(err) = result {
+                error!("Error sending command from script to buttplug: {}", err);
+            }
+        });
+        engine.register_fn("vibratefor", move |speed: f64, time: f64| { //opted to change this name to vibratefor since "vibrate" is vibrate without duration specification on bp side
             let result = vsend.send(ScriptCommand::VibrateFor(speed, time));
             if let Err(err) = result {
                 error!("Error sending command from script to buttplug: {}", err);
